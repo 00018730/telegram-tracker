@@ -109,34 +109,32 @@ function App() {
 };
 
   const toggleCell = async (task, lesson) => {
-  if (view === 'view-student') return;
+  if (view === 'view-student' || !userId) return;
 
-  // We slugify the key: "The Board" becomes "TheBoard"
-  // This prevents database errors with spaces/special characters
+  // IMPORTANT: Match the "TheBoard" format seen in your screenshot
   const cleanTaskName = task.replace(/\s+/g, '').replace(/[()]/g, '');
   const key = `${cleanTaskName}-W${currentWeek}-L${lesson}`;
   
   const newValue = !gridData[key];
   
-  // Update UI
+  // 1. Update UI immediately for speed
   setGridData(prev => ({ ...prev, [key]: newValue }));
 
-  // Save to Database
+  // 2. Save to Supabase
   const { error } = await supabase
     .from('progress')
-    .upsert(
-      { 
-        user_id: userId, 
-        task_key: key, 
-        is_done: newValue 
-      }, 
-      { onConflict: 'user_id, task_key' }
-    );
+    .upsert({ 
+      user_id: userId, 
+      task_key: key, 
+      is_done: newValue 
+      // Notice: we are NOT sending user_name here
+    }, { onConflict: 'user_id, task_key' });
 
   if (error) {
-    console.error("Critical Save Error:", error.message);
-    // If it fails, we roll back the UI so the user knows it didn't save
+    // Revert UI if save fails
     setGridData(prev => ({ ...prev, [key]: !newValue }));
+    alert("Database Error: " + error.message);
+    console.error("Full Error:", error);
   }
 };
 
