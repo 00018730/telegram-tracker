@@ -1,33 +1,51 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
+import './App.css'; // Import the new CSS file
 
 function App() {
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const taskNames = ["Morning Exercise", "Read 10 Pages", "Code for 1 hour"];
-  
-  // REPLACE THIS with your actual Telegram ID (as a string)
-  const ADMIN_ID = "123456789"; 
+  const habits = [
+    "The Board", "Workbook", "Work on Mistakes (WB)", "Student's Book", "Sentences", 
+    "Dialogues", "Essay", "Reading", "Work on Mistakes (Read)", "Tactics Workbook", 
+    "Tactics Listening", "Work on Mistakes (Tactics)", "Grammar", 
+    "Work on Mistakes (Grammar)", "Vocabulary", "Work on Mistakes (Vocab)"
+  ];
+  const lessons = [1, 2, 3];
+  const totalWeeks = 4;
 
+  const ADMIN_ID = "123456789"; // Replace with your actual ID
+
+  const [currentWeek, setCurrentWeek] = useState(1);
   const [gridData, setGridData] = useState({});
-  const [userName, setUserName] = useState("Student");
+  const [userName, setUserName] = useState("");
   const [userId, setUserId] = useState(null);
-  const [view, setView] = useState('user'); // 'user' or 'admin'
-  const [allStats, setAllStats] = useState([]);
+  
+  const [isRegistered, setIsRegistered] = useState(false);
+  const [regStep, setRegStep] = useState(1);
+  const [formData, setFormData] = useState({ firstName: "", lastName: "" });
+  const [view, setView] = useState('user'); // 'user', 'admin', 'view-student'
+  const [students, setStudents] = useState([]);
+  const [inspectingStudent, setInspectingStudent] = useState(null);
 
   useEffect(() => {
     const tg = window.Telegram.WebApp;
     tg.ready();
     tg.expand();
-
     if (tg.initDataUnsafe?.user) {
       const id = tg.initDataUnsafe.user.id.toString();
-      setUserName(tg.initDataUnsafe.user.first_name);
       setUserId(id);
-      loadSavedProgress(id);
+      checkUser(id);
     }
   }, []);
 
-  // --- STUDENT: Load Data ---
+  const checkUser = async (id) => {
+    const { data: profile } = await supabase.from('profiles').select('full_name').eq('user_id', id).single();
+    if (profile) {
+      setIsRegistered(true);
+      setUserName(profile.full_name);
+      loadSavedProgress(id);
+    }
+  };
+
   const loadSavedProgress = async (id) => {
     const { data } = await supabase.from('progress').select('task_key, is_done').eq('user_id', id);
     if (data) {
@@ -37,74 +55,119 @@ function App() {
     }
   };
 
-  // --- STUDENT: Toggle Cell ---
-  const toggleCell = async (task, day) => {
-    const key = `${task}-${day}`;
+  const handleRegister = async () => {
+    const fullName = `${formData.firstName} ${formData.lastName}`;
+    const { error } = await supabase.from('profiles').upsert({ user_id: userId, full_name: fullName });
+    if (!error) {
+      setUserName(fullName);
+      setIsRegistered(true);
+      loadSavedProgress(userId);
+    }
+  };
+
+  const toggleCell = async (task, lesson) => {
+    if (view === 'view-student') return;
+    const key = `${task}-W${currentWeek}-L${lesson}`;
     const newValue = !gridData[key];
     setGridData(prev => ({ ...prev, [key]: newValue }));
-    if (userId) {
-      await supabase.from('progress').upsert({ user_id: userId, task_key: key, is_done: newValue }, { onConflict: 'user_id, task_key' });
-    }
+    await supabase.from('progress').upsert({ user_id: userId, task_key: key, is_done: newValue }, { onConflict: 'user_id, task_key' });
   };
 
-  // --- ADMIN: Load All Students ---
-  const loadAdminDashboard = async () => {
-    const { data, error } = await supabase.from('progress').select('*');
-    if (data) {
-      // Group data by user_id to show a nice list
-      const grouped = data.reduce((acc, curr) => {
-        if (!acc[curr.user_id]) acc[curr.user_id] = { id: curr.user_id, total: 0 };
-        if (curr.is_done) acc[curr.user_id].total += 1;
-        return acc;
-      }, {});
-      setAllStats(Object.values(grouped));
-      setView('admin');
-    }
+  const calculateCoef = (data) => {
+    const total = habits.length * totalWeeks * 3;
+    const done = Object.values(data).filter(v => v === true).length;
+    return ((done / total) * 100).toFixed(1);
   };
 
-  // --- RENDER ADMIN VIEW ---
-  if (view === 'admin') {
+  // --- Registration UI ---
+  if (!isRegistered && userId) {
     return (
-      <div style={styles.container}>
-        <button onClick={() => setView('user')} style={styles.backButton}>← Back to My Tracker</button>
-        <h2>Admin Dashboard</h2>
-        <p>Total completion count per student:</p>
-        <div style={styles.adminList}>
-          {allStats.map(stat => (
-            <div key={stat.id} style={styles.adminCard}>
-              <span>Student ID: <strong>{stat.id}</strong></span>
-              <span style={styles.badge}>{stat.total} Tasks Done</span>
-            </div>
-          ))}
-        </div>
+      <div className="container">
+        <h2 style={{color: 'var(--dark-teal)'}}>Setup Profile</h2>
+        {regStep === 1 ? (
+          <div>
+            <p>First Name:</p>
+            <input className="input-field" onChange={(e) => setFormData({...formData, firstName: e.target.value})} />
+            <button className="primary-btn" onClick={() => setRegStep(2)}>Next</button>
+          </div>
+        ) : (
+          <div>
+            <p>Family Name:</p>
+            <input className="input-field" onChange={(e) => setFormData({...formData, lastName: e.target.value})} />
+            <button className="primary-btn" onClick={handleRegister}>Start Tracking</button>
+          </div>
+        )}
       </div>
     );
   }
 
-  // --- RENDER STUDENT VIEW ---
+  // --- Admin Student List ---
+  if (view === 'admin') {
+    return (
+      <div className="container">
+        <button onClick={() => setView('user')} className="nav-btn" style={{width: 'auto', borderRadius: '8px', padding: '0 10px'}}>← Back</button>
+        <h2 style={{color: 'var(--dark-teal)'}}>Students</h2>
+        {students.map(s => (
+          <div key={s.user_id} className="stat-card" onClick={async () => {
+            const { data } = await supabase.from('progress').select('task_key, is_done').eq('user_id', s.user_id);
+            const loaded = {};
+            if(data) data.forEach(r => loaded[r.task_key] = r.is_done);
+            setInspectingStudent({...s, grid: loaded});
+            setView('view-student');
+          }}>
+            <span>{s.full_name}</span>
+            <span>View →</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const activeData = view === 'view-student' ? inspectingStudent.grid : gridData;
+
   return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0 }}>{userName}'s Tracker</h2>
-          {userId === ADMIN_ID && (
-            <button onClick={loadAdminDashboard} style={styles.adminToggle}>Admin</button>
+    <div className="container">
+      <header className="header">
+        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+          <h1 className="welcome-text">{view === 'view-student' ? inspectingStudent.full_name : userName}</h1>
+          {userId === ADMIN_ID && view === 'user' && (
+            <button onClick={async () => {
+              const { data } = await supabase.from('profiles').select('*');
+              setStudents(data || []);
+              setView('admin');
+            }} className="primary-btn" style={{width: 'auto', padding: '6px 12px'}}>Admin</button>
           )}
+          {view === 'view-student' && <button onClick={() => setView('admin')} className="primary-btn" style={{width: 'auto'}}>Close</button>}
+        </div>
+        <div className="stat-card">
+          <span>Overall Coefficient</span>
+          <span style={{fontSize: '20px', fontWeight: 'bold'}}>{calculateCoef(activeData)}%</span>
         </div>
       </header>
 
-      <div style={styles.tableWrapper}>
-        <div style={styles.grid}>
-          <div style={styles.headerCell}>Task</div>
-          {days.map(day => <div key={day} style={styles.headerCell}>{day}</div>)}
-          {taskNames.map(task => (
-            <React.Fragment key={task}>
-              <div style={styles.taskLabel}>{task}</div>
-              {days.map(day => {
-                const isDone = gridData[`${task}-${day}`];
+      <div className="nav-bar">
+        <button className="nav-btn" onClick={() => setCurrentWeek(w => Math.max(1, w - 1))}>←</button>
+        <span style={{fontWeight: 'bold', color: 'var(--dark-teal)'}}>WEEK {currentWeek}</span>
+        <button className="nav-btn" onClick={() => setCurrentWeek(w => Math.min(totalWeeks, w + 1))}>→</button>
+      </div>
+
+      <div className="table-wrapper">
+        <div className="grid-layout">
+          <div className="header-cell">HABITS</div>
+          {lessons.map(l => <div key={l} className="header-cell">L{l}</div>)}
+          
+          {habits.map(habit => (
+            <React.Fragment key={habit}>
+              <div className="habit-label">{habit}</div>
+              {lessons.map(l => {
+                const isDone = activeData[`${habit}-W${currentWeek}-L${l}`];
                 return (
-                  <div key={`${task}-${day}`} onClick={() => toggleCell(task, day)}
-                    style={{ ...styles.cell, backgroundColor: isDone ? '#4CAF50' : '#e0e0e0' }}>
+                  <div 
+                    key={l} 
+                    onClick={() => toggleCell(habit, l)}
+                    className="cell"
+                    style={{ backgroundColor: isDone ? 'var(--primary-green)' : 'var(--light-gray)' }}
+                  >
                     {isDone && '✓'}
                   </div>
                 );
@@ -116,20 +179,5 @@ function App() {
     </div>
   );
 }
-
-const styles = {
-  container: { padding: '15px', fontFamily: 'sans-serif', backgroundColor: '#fff', minHeight: '100vh' },
-  header: { marginBottom: '20px' },
-  tableWrapper: { overflowX: 'auto' },
-  grid: { display: 'grid', gridTemplateColumns: '120px repeat(7, 40px)', gap: '8px', alignItems: 'center' },
-  headerCell: { fontWeight: 'bold', fontSize: '11px', textAlign: 'center', color: '#888', textTransform: 'uppercase' },
-  taskLabel: { fontSize: '13px', fontWeight: '500', color: '#333' },
-  cell: { width: '35px', height: '35px', borderRadius: '6px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', color: 'white' },
-  adminToggle: { padding: '5px 10px', fontSize: '12px', backgroundColor: '#f0f0f0', border: '1px solid #ccc', borderRadius: '5px', cursor: 'pointer' },
-  backButton: { marginBottom: '15px', padding: '8px', border: 'none', background: 'none', color: '#0088cc', cursor: 'pointer', fontWeight: 'bold' },
-  adminList: { marginTop: '20px' },
-  adminCard: { padding: '15px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  badge: { backgroundColor: '#4CAF50', color: 'white', padding: '4px 8px', borderRadius: '12px', fontSize: '12px' }
-};
 
 export default App;
