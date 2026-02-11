@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = 'https://rfncbvloygdnlsooujee.supabase.co'
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmbmNidmxveWdkbmxzb291amVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4MTU0MTEsImV4cCI6MjA4NjM5MTQxMX0.sp7BgLH65LxBcTTsIoZqoF4Hte-wcM06vG4hh8HQ5Gg'
+// This tells the app to use the Vercel variables if they exist, 
+// otherwise look for them in a local .env file
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
