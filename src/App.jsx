@@ -65,6 +65,22 @@ function App() {
     }
   };
 
+  const handleLogout = async () => {
+  // Optional: If you want to delete their profile from the database 
+  // so they can register from scratch:
+  // await supabase.from('profiles').delete().eq('user_id', userId);
+
+  // Clear local states
+  setIsRegistered(false);
+  setUserName("");
+  setGridData({});
+  setRegStep(1);
+  setFormData({ firstName: "", lastName: "" });
+  
+  // Force a reload of the Telegram WebApp to clear any cache
+  window.location.reload();
+};
+
   const toggleCell = async (task, lesson) => {
     if (view === 'view-student') return;
     const key = `${task}-W${currentWeek}-L${lesson}`;
@@ -176,7 +192,23 @@ function App() {
           ))}
         </div>
       </div>
-    </div>
+      {/* ... existing table code ... */}
+      
+      <button 
+        onClick={handleLogout} 
+        style={{
+          marginTop: '40px',
+          background: 'none',
+          border: 'none',
+          color: '#ff3b30', // Red color for logout
+          fontSize: '14px',
+          width: '100%',
+          cursor: 'pointer'
+        }}
+      >
+        Log Out / Reset Profile
+      </button>
+    </div> // This is the final closing div of the container
   );
 }
 
