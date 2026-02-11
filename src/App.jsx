@@ -65,20 +65,35 @@ function App() {
     }
   };
 
-  const handleLogout = async () => {
-  // Optional: If you want to delete their profile from the database 
-  // so they can register from scratch:
-  // await supabase.from('profiles').delete().eq('user_id', userId);
+  const styles = {
+  // ... your other styles
+  modernInput: {
+    backgroundColor: '#f5f5f7',
+    border: 'none',
+    padding: '15px',
+    borderRadius: '12px',
+    fontSize: '16px',
+    marginBottom: '12px',
+    width: '100%',
+    boxSizing: 'border-box',
+    color: 'var(--dark-teal)'
+  }
+};
 
-  // Clear local states
-  setIsRegistered(false);
-  setUserName("");
-  setGridData({});
-  setRegStep(1);
-  setFormData({ firstName: "", lastName: "" });
-  
-  // Force a reload of the Telegram WebApp to clear any cache
-  window.location.reload();
+  const handleLogout = async () => {
+  if (window.confirm("This will reset your profile name. Are you sure?")) {
+    // 1. Delete the profile from Supabase so checkUser doesn't find it
+    await supabase.from('profiles').delete().eq('user_id', userId);
+
+    // 2. Clear local states
+    setIsRegistered(false);
+    setUserName("");
+    setGridData({});
+    setRegStep(1);
+    
+    // 3. Reload to start fresh
+    window.location.reload();
+  }
 };
 
   const toggleCell = async (task, lesson) => {
@@ -96,23 +111,39 @@ function App() {
   };
 
   // --- Registration UI ---
+  // --- Registration UI (Modernized) ---
   if (!isRegistered && userId) {
     return (
-      <div className="container">
-        <h2 style={{color: 'var(--dark-teal)'}}>Setup Profile</h2>
-        {regStep === 1 ? (
-          <div>
-            <p>First Name:</p>
-            <input className="input-field" onChange={(e) => setFormData({...formData, firstName: e.target.value})} />
-            <button className="primary-btn" onClick={() => setRegStep(2)}>Next</button>
+      <div className="container" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
+        <div style={{ marginBottom: '30px' }}>
+          <div style={{ backgroundColor: 'var(--primary-green)', width: '60px', height: '60px', borderRadius: '20px', margin: '0 auto 20px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+             <span style={{ fontSize: '30px' }}>✍️</span>
           </div>
-        ) : (
-          <div>
-            <p>Family Name:</p>
-            <input className="input-field" onChange={(e) => setFormData({...formData, lastName: e.target.value})} />
-            <button className="primary-btn" onClick={handleRegister}>Start Tracking</button>
-          </div>
-        )}
+          <h2 style={{ color: 'var(--dark-teal)', fontSize: '28px', marginBottom: '8px' }}>Welcome</h2>
+          <p style={{ color: '#888', fontSize: '14px' }}>Please set up your student profile</p>
+        </div>
+
+        <div style={{ width: '100%', maxWidth: '300px' }}>
+          <input 
+            className="input-field" 
+            placeholder="First Name"
+            style={styles.modernInput}
+            onChange={(e) => setFormData({...formData, firstName: e.target.value})} 
+          />
+          <input 
+            className="input-field" 
+            placeholder="Family Name"
+            style={styles.modernInput}
+            onChange={(e) => setFormData({...formData, lastName: e.target.value})} 
+          />
+          <button 
+            className="primary-btn" 
+            style={{ marginTop: '10px', height: '50px', borderRadius: '15px', fontSize: '16px' }}
+            onClick={handleRegister}
+          >
+            Create Profile
+          </button>
+        </div>
       </div>
     );
   }
