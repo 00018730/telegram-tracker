@@ -111,30 +111,23 @@ function App() {
   const toggleCell = async (task, lesson) => {
   if (view === 'view-student' || !userId) return;
 
-  // IMPORTANT: Match the "TheBoard" format seen in your screenshot
   const cleanTaskName = task.replace(/\s+/g, '').replace(/[()]/g, '');
   const key = `${cleanTaskName}-W${currentWeek}-L${lesson}`;
-  
   const newValue = !gridData[key];
   
-  // 1. Update UI immediately for speed
   setGridData(prev => ({ ...prev, [key]: newValue }));
 
-  // 2. Save to Supabase
   const { error } = await supabase
     .from('progress')
     .upsert({ 
       user_id: userId, 
       task_key: key, 
       is_done: newValue 
-      // Notice: we are NOT sending user_name here
-    }, { onConflict: 'user_id, task_key' });
+    }, { onConflict: 'user_id, task_key' }); // This must match the new PK we set in SQL
 
   if (error) {
-    // Revert UI if save fails
     setGridData(prev => ({ ...prev, [key]: !newValue }));
     alert("Database Error: " + error.message);
-    console.error("Full Error:", error);
   }
 };
 
