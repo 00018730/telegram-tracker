@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
-import './App.css'; // Import the new CSS file
+import './App.css'; 
 
 function App() {
   const habits = [
@@ -20,9 +20,8 @@ function App() {
   const [userId, setUserId] = useState(null);
   
   const [isRegistered, setIsRegistered] = useState(false);
-  const [regStep, setRegStep] = useState(1);
   const [formData, setFormData] = useState({ firstName: "", lastName: "" });
-  const [view, setView] = useState('user'); // 'user', 'admin', 'view-student'
+  const [view, setView] = useState('user'); 
   const [students, setStudents] = useState([]);
   const [inspectingStudent, setInspectingStudent] = useState(null);
 
@@ -47,27 +46,27 @@ function App() {
   };
 
   const loadSavedProgress = async (id) => {
-  const { data, error } = await supabase
-    .from('progress')
-    .select('task_key, is_done')
-    .eq('user_id', id);
+    const { data, error } = await supabase
+      .from('progress')
+      .select('task_key, is_done')
+      .eq('user_id', id);
 
-  if (error) {
-    console.error("Load Error:", error.message);
-    return;
-  }
+    if (error) {
+      console.error("Load Error:", error.message);
+      return;
+    }
 
-  if (data) {
-    const loadedGrid = {};
-    // We loop through EVERY row returned and add it to the grid
-    data.forEach(row => { 
-      loadedGrid[row.task_key] = row.is_done; 
-    });
-    setGridData(loadedGrid);
-  }
-};
+    if (data) {
+      const loadedGrid = {};
+      data.forEach(row => { 
+        loadedGrid[row.task_key] = row.is_done; 
+      });
+      setGridData(loadedGrid);
+    }
+  };
 
   const handleRegister = async () => {
+    if (!formData.firstName || !formData.lastName) return alert("Please enter both names");
     const fullName = `${formData.firstName} ${formData.lastName}`;
     const { error } = await supabase.from('profiles').upsert({ user_id: userId, full_name: fullName });
     if (!error) {
@@ -77,59 +76,39 @@ function App() {
     }
   };
 
-  const styles = {
-  // ... your other styles
-  modernInput: {
-    backgroundColor: '#f5f5f7',
-    border: 'none',
-    padding: '15px',
-    borderRadius: '12px',
-    fontSize: '16px',
-    marginBottom: '12px',
-    width: '100%',
-    boxSizing: 'border-box',
-    color: 'var(--dark-teal)'
-  }
-};
-
   const handleLogout = async () => {
-  if (window.confirm("This will reset your profile name. Are you sure?")) {
-    // 1. Delete the profile from Supabase so checkUser doesn't find it
-    await supabase.from('profiles').delete().eq('user_id', userId);
-
-    // 2. Clear local states
-    setIsRegistered(false);
-    setUserName("");
-    setGridData({});
-    setRegStep(1);
-    
-    // 3. Reload to start fresh
-    window.location.reload();
-  }
-};
+    if (window.confirm("This will reset your profile. Are you sure?")) {
+      await supabase.from('profiles').delete().eq('user_id', userId);
+      setIsRegistered(false);
+      setUserName("");
+      setGridData({});
+      window.location.reload();
+    }
+  };
 
   const toggleCell = async (task, lesson) => {
-  if (view === 'view-student' || !userId) return;
+    if (view === 'view-student' || !userId) return;
 
-  const cleanTaskName = task.replace(/\s+/g, '').replace(/[()]/g, '');
-  const key = `${cleanTaskName}-W${currentWeek}-L${lesson}`;
-  const newValue = !gridData[key];
-  
-  setGridData(prev => ({ ...prev, [key]: newValue }));
+    // Convert "The Board" to "TheBoard" to match database keys
+    const cleanTaskName = task.replace(/\s+/g, '').replace(/[()]/g, '');
+    const key = `${cleanTaskName}-W${currentWeek}-L${lesson}`;
+    const newValue = !gridData[key];
+    
+    setGridData(prev => ({ ...prev, [key]: newValue }));
 
-  const { error } = await supabase
-    .from('progress')
-    .upsert({ 
-      user_id: userId, 
-      task_key: key, 
-      is_done: newValue 
-    }, { onConflict: 'user_id, task_key' }); // This must match the new PK we set in SQL
+    const { error } = await supabase
+      .from('progress')
+      .upsert({ 
+        user_id: userId, 
+        task_key: key, 
+        is_done: newValue 
+      }, { onConflict: 'user_id, task_key' });
 
-  if (error) {
-    setGridData(prev => ({ ...prev, [key]: !newValue }));
-    alert("Database Error: " + error.message);
-  }
-};
+    if (error) {
+      setGridData(prev => ({ ...prev, [key]: !newValue }));
+      alert("Database Error: " + error.message);
+    }
+  };
 
   const calculateCoef = (data) => {
     const total = habits.length * totalWeeks * 3;
@@ -137,20 +116,33 @@ function App() {
     return ((done / total) * 100).toFixed(1);
   };
 
-  // --- Registration UI ---
+  const styles = {
+    modernInput: {
+      backgroundColor: '#f5f5f7',
+      border: 'none',
+      padding: '15px',
+      borderRadius: '12px',
+      fontSize: '16px',
+      marginBottom: '12px',
+      width: '100%',
+      boxSizing: 'border-box',
+      color: 'var(--dark-teal)'
+    }
+  };
+
   // --- Registration UI (Modernized) ---
   if (!isRegistered && userId) {
     return (
-      <div className="container" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
+      <div className="container" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', paddingTop: '60px' }}>
         <div style={{ marginBottom: '30px' }}>
-          <div style={{ backgroundColor: 'var(--primary-green)', width: '60px', height: '60px', borderRadius: '20px', margin: '0 auto 20px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-             <span style={{ fontSize: '30px' }}>✍️</span>
+          <div style={{ backgroundColor: 'var(--primary-green)', width: '70px', height: '70px', borderRadius: '22px', margin: '0 auto 20px', display: 'flex', justifyContent: 'center', alignItems: 'center', boxShadow: '0 10px 20px rgba(0, 148, 114, 0.2)' }}>
+             <span style={{ fontSize: '32px' }}>✍️</span>
           </div>
-          <h2 style={{ color: 'var(--dark-teal)', fontSize: '28px', marginBottom: '8px' }}>Welcome</h2>
-          <p style={{ color: '#888', fontSize: '14px' }}>Please set up your student profile</p>
+          <h2 style={{ color: 'var(--dark-teal)', fontSize: '28px', fontWeight: '800', margin: '0' }}>Welcome</h2>
+          <p style={{ color: '#8e8e93', fontSize: '15px', marginTop: '8px' }}>Please set up your student profile</p>
         </div>
 
-        <div style={{ width: '100%', maxWidth: '300px' }}>
+        <div style={{ width: '100%', maxWidth: '320px' }}>
           <input 
             className="input-field" 
             placeholder="First Name"
@@ -165,7 +157,7 @@ function App() {
           />
           <button 
             className="primary-btn" 
-            style={{ marginTop: '10px', height: '50px', borderRadius: '15px', fontSize: '16px' }}
+            style={{ marginTop: '10px', height: '54px', borderRadius: '16px', fontSize: '17px', fontWeight: 'bold' }}
             onClick={handleRegister}
           >
             Create Profile
@@ -179,10 +171,10 @@ function App() {
   if (view === 'admin') {
     return (
       <div className="container">
-        <button onClick={() => setView('user')} className="nav-btn" style={{width: 'auto', borderRadius: '8px', padding: '0 10px'}}>← Back</button>
-        <h2 style={{color: 'var(--dark-teal)'}}>Students</h2>
+        <button onClick={() => setView('user')} className="nav-btn" style={{width: 'auto', borderRadius: '8px', padding: '0 10px', marginBottom: '15px'}}>← Back</button>
+        <h2 style={{color: 'var(--dark-teal)'}}>Student List</h2>
         {students.map(s => (
-          <div key={s.user_id} className="stat-card" onClick={async () => {
+          <div key={s.user_id} className="stat-card" style={{ marginBottom: '10px', cursor: 'pointer' }} onClick={async () => {
             const { data } = await supabase.from('progress').select('task_key, is_done').eq('user_id', s.user_id);
             const loaded = {};
             if(data) data.forEach(r => loaded[r.task_key] = r.is_done);
@@ -202,26 +194,26 @@ function App() {
   return (
     <div className="container">
       <header className="header">
-        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
-          <h1 className="welcome-text">{view === 'view-student' ? inspectingStudent.full_name : userName}</h1>
+        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px'}}>
+          <h1 className="welcome-text" style={{ fontSize: '24px' }}>{view === 'view-student' ? inspectingStudent.full_name : userName}</h1>
           {userId === ADMIN_ID && view === 'user' && (
             <button onClick={async () => {
               const { data } = await supabase.from('profiles').select('*');
               setStudents(data || []);
               setView('admin');
-            }} className="primary-btn" style={{width: 'auto', padding: '6px 12px'}}>Admin</button>
+            }} className="primary-btn" style={{width: 'auto', padding: '6px 14px', borderRadius: '20px', fontSize: '12px'}}>Admin</button>
           )}
-          {view === 'view-student' && <button onClick={() => setView('admin')} className="primary-btn" style={{width: 'auto'}}>Close</button>}
+          {view === 'view-student' && <button onClick={() => setView('admin')} className="primary-btn" style={{width: 'auto', padding: '6px 14px', borderRadius: '20px', fontSize: '12px'}}>Close</button>}
         </div>
-        <div className="stat-card">
+        <div className="stat-card" style={{ backgroundColor: 'var(--dark-teal)', color: 'white' }}>
           <span>Overall Coefficient</span>
-          <span style={{fontSize: '20px', fontWeight: 'bold'}}>{calculateCoef(activeData)}%</span>
+          <span style={{fontSize: '24px', fontWeight: '800'}}>{calculateCoef(activeData)}%</span>
         </div>
       </header>
 
       <div className="nav-bar">
         <button className="nav-btn" onClick={() => setCurrentWeek(w => Math.max(1, w - 1))}>←</button>
-        <span style={{fontWeight: 'bold', color: 'var(--dark-teal)'}}>WEEK {currentWeek}</span>
+        <span style={{fontWeight: '800', color: 'var(--dark-teal)'}}>WEEK {currentWeek}</span>
         <button className="nav-btn" onClick={() => setCurrentWeek(w => Math.min(totalWeeks, w + 1))}>→</button>
       </div>
 
@@ -230,43 +222,51 @@ function App() {
           <div className="header-cell">HABITS</div>
           {lessons.map(l => <div key={l} className="header-cell">L{l}</div>)}
           
-          {habits.map(habit => (
-            <React.Fragment key={habit}>
-              <div className="habit-label">{habit}</div>
-              {lessons.map(l => {
-                const isDone = activeData[`${habit}-W${currentWeek}-L${l}`];
-                return (
-                  <div 
-                    key={l} 
-                    onClick={() => toggleCell(habit, l)}
-                    className="cell"
-                    style={{ backgroundColor: isDone ? 'var(--primary-green)' : 'var(--light-gray)' }}
-                  >
-                    {isDone && '✓'}
-                  </div>
-                );
-              })}
-            </React.Fragment>
-          ))}
+          {habits.map(habit => {
+            // MATCHING LOGIC: Generate the same clean key used for saving
+            const cleanTaskName = habit.replace(/\s+/g, '').replace(/[()]/g, '');
+            
+            return (
+              <React.Fragment key={habit}>
+                <div className="habit-label">{habit}</div>
+                {lessons.map(l => {
+                  const dataKey = `${cleanTaskName}-W${currentWeek}-L${l}`;
+                  const isDone = activeData[dataKey];
+                  return (
+                    <div 
+                      key={l} 
+                      onClick={() => toggleCell(habit, l)}
+                      className="cell"
+                      style={{ backgroundColor: isDone ? 'var(--primary-green)' : 'var(--light-gray)' }}
+                    >
+                      {isDone && '✓'}
+                    </div>
+                  );
+                })}
+              </React.Fragment>
+            );
+          })}
         </div>
       </div>
-      {/* ... existing table code ... */}
       
       <button 
         onClick={handleLogout} 
         style={{
           marginTop: '40px',
           background: 'none',
-          border: 'none',
-          color: '#ff3b30', // Red color for logout
+          border: '1px solid #ff3b30',
+          borderRadius: '12px',
+          padding: '12px',
+          color: '#ff3b30',
           fontSize: '14px',
+          fontWeight: 'bold',
           width: '100%',
           cursor: 'pointer'
         }}
       >
-        Log Out / Reset Profile
+        Reset Profile
       </button>
-    </div> // This is the final closing div of the container
+    </div>
   );
 }
 
