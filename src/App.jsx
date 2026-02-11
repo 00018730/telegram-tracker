@@ -47,13 +47,25 @@ function App() {
   };
 
   const loadSavedProgress = async (id) => {
-    const { data } = await supabase.from('progress').select('task_key, is_done').eq('user_id', id);
-    if (data) {
-      const loadedGrid = {};
-      data.forEach(row => { loadedGrid[row.task_key] = row.is_done; });
-      setGridData(loadedGrid);
-    }
-  };
+  const { data, error } = await supabase
+    .from('progress')
+    .select('task_key, is_done')
+    .eq('user_id', id);
+
+  if (error) {
+    console.error("Load Error:", error.message);
+    return;
+  }
+
+  if (data) {
+    const loadedGrid = {};
+    // We loop through EVERY row returned and add it to the grid
+    data.forEach(row => { 
+      loadedGrid[row.task_key] = row.is_done; 
+    });
+    setGridData(loadedGrid);
+  }
+};
 
   const handleRegister = async () => {
     const fullName = `${formData.firstName} ${formData.lastName}`;
@@ -98,14 +110,18 @@ function App() {
 
   const toggleCell = async (task, lesson) => {
   if (view === 'view-student') return;
+
+  // We slugify the key: "The Board" becomes "TheBoard"
+  // This prevents database errors with spaces/special characters
+  const cleanTaskName = task.replace(/\s+/g, '').replace(/[()]/g, '');
+  const key = `${cleanTaskName}-W${currentWeek}-L${lesson}`;
   
-  const key = `${task}-W${currentWeek}-L${lesson}`;
   const newValue = !gridData[key];
   
-  // 1. Update UI instantly
+  // Update UI
   setGridData(prev => ({ ...prev, [key]: newValue }));
 
-  // 2. Save to Database
+  // Save to Database
   const { error } = await supabase
     .from('progress')
     .upsert(
@@ -114,11 +130,13 @@ function App() {
         task_key: key, 
         is_done: newValue 
       }, 
-      { onConflict: 'user_id, task_key' } // This matches your SQL constraint name
+      { onConflict: 'user_id, task_key' }
     );
 
   if (error) {
-    console.error("Error saving to Supabase:", error.message);
+    console.error("Critical Save Error:", error.message);
+    // If it fails, we roll back the UI so the user knows it didn't save
+    setGridData(prev => ({ ...prev, [key]: !newValue }));
   }
 };
 
