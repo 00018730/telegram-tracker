@@ -46,35 +46,38 @@ function App() {
   };
 
   const loadSavedProgress = async (id) => {
-    const { data, error } = await supabase
-      .from('progress')
-      .select('task_key, is_done')
-      .eq('user_id', id);
+  const { data, error } = await supabase
+    .from('progress')
+    .select('data, full_name')
+    .eq('user_id', id)
+    .single();
 
-    if (error) {
-      console.error("Load Error:", error.message);
-      return;
-    }
-
-    if (data) {
-      const loadedGrid = {};
-      data.forEach(row => { 
-        loadedGrid[row.task_key] = row.is_done; 
-      });
-      setGridData(loadedGrid);
-    }
-  };
+  if (data) {
+    // data.data contains our "done/not done" object
+    setGridData(data.data || {});
+    if (!userName) setUserName(data.full_name);
+  }
+};
 
   const handleRegister = async () => {
-    if (!formData.firstName || !formData.lastName) return alert("Please enter both names");
-    const fullName = `${formData.firstName} ${formData.lastName}`;
-    const { error } = await supabase.from('profiles').upsert({ user_id: userId, full_name: fullName });
-    if (!error) {
-      setUserName(fullName);
-      setIsRegistered(true);
-      loadSavedProgress(userId);
-    }
-  };
+  if (!formData.firstName || !formData.lastName) return alert("Please enter both names");
+  const fullName = `${formData.firstName} ${formData.lastName}`;
+  
+  // Save to profiles
+  await supabase.from('profiles').upsert({ user_id: userId, full_name: fullName });
+  
+  // Initialize the progress row with the full_name
+  const { error } = await supabase.from('progress').upsert({ 
+    user_id: userId, 
+    full_name: fullName,
+    data: {} 
+  });
+
+  if (!error) {
+    setUserName(fullName);
+    setIsRegistered(true);
+  }
+};
 
   const handleLogout = async () => {
     if (window.confirm("This will reset your profile. Are you sure?")) {
@@ -87,28 +90,28 @@ function App() {
   };
 
   const toggleCell = async (task, lesson) => {
-    if (view === 'view-student' || !userId) return;
+  if (view === 'view-student' || !userId) return;
 
-    // Convert "The Board" to "TheBoard" to match database keys
-    const cleanTaskName = task.replace(/\s+/g, '').replace(/[()]/g, '');
-    const key = `${cleanTaskName}-W${currentWeek}-L${lesson}`;
-    const newValue = !gridData[key];
-    
-    setGridData(prev => ({ ...prev, [key]: newValue }));
+  const cleanTaskName = task.replace(/\s+/g, '').replace(/[()]/g, '');
+  const key = `${cleanTaskName}-W${currentWeek}-L${lesson}`;
+  
+  // 1. Create the new state locally
+  const newGridData = { ...gridData, [key]: !gridData[key] };
+  setGridData(newGridData);
 
-    const { error } = await supabase
-      .from('progress')
-      .upsert({ 
-        user_id: userId, 
-        task_key: key, 
-        is_done: newValue 
-      }, { onConflict: 'user_id, task_key' });
+  // 2. Save the ENTIRE object to the 'data' column
+  const { error } = await supabase
+    .from('progress')
+    .upsert({ 
+      user_id: userId, 
+      full_name: userName, // Keep the name updated
+      data: newGridData    // This is the JSON object
+    });
 
-    if (error) {
-      setGridData(prev => ({ ...prev, [key]: !newValue }));
-      alert("Database Error: " + error.message);
-    }
-  };
+  if (error) {
+    alert("Save Error: " + error.message);
+  }
+};
 
   const calculateCoef = (data) => {
     const total = habits.length * totalWeeks * 3;
